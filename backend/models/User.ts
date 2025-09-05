@@ -9,6 +9,7 @@ export interface IUser extends Document{
     googleId?:string;
     otpHash?:string;
     otpExpiry?: Date;
+    isVerified: boolean;
     createdAt: Date;
 }
 
@@ -19,6 +20,7 @@ export interface IUser extends Document{
     googleId: {type:String},
     otpHash: {type:String},
     otpExpiry: {type:Date},
+    isVerified: {type:Boolean, default:false},
     createdAt: {type:Date, default: Date.now}
 },
     {timestamps:true}
