@@ -23,6 +23,11 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use((response) => {
     return response
 }, (error) => {
+    if (error.response?.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+    }
     return Promise.reject(error);
 })
 
@@ -111,4 +116,12 @@ export const api = {
         }
     },
 
+    resendOtp: async (email: string) => {
+        try {
+            const response = await apiClient.post('/auth/resend-otp', { email });
+            return response.data;
+        } catch (error) {
+            throw error;
+        }
+    }
 }

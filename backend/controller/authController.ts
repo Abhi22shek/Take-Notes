@@ -1,135 +1,94 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { generateOtp,  hashOtp } from '../utils/generateOTP';
 import User from '../models/User';
 import { transporter } from '../config/email';
 import {verifyOtp as checkOtp} from '../utils/generateOTP';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt'
+import { sendResponse } from '../utils/response';
+import { AppError } from '../middleware/errorMiddleware';
 
 
-
-export const signUpOtp = async (req: Request, res: Response) => {
+export const signUpOtp = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { name, email, password } = req.body;
 
-        // Input validation
         if (!name || !email || !password) {
-            return res.status(400).json({ 
-                success: false,
-                message: 'Please fill all the fields' 
-            });
+            return next(new AppError('Please fill all the fields', 400));
         }
 
-        // Email format validation (basic)
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
-            return res.status(400).json({ 
-                success: false,
-                message: 'Please enter a valid email address' 
-            });
+            return next(new AppError('Please enter a valid email address', 400));
         }
 
-        // Password strength validation
         if (password.length < 6) {
-            return res.status(400).json({ 
-                success: false,
-                message: 'Password must be at least 6 characters long' 
-            });
+            return next(new AppError('Password must be at least 6 characters long', 400));
         }
 
-        // Check if user already exists
         const existingUser = await User.findOne({ email });
 
         if (existingUser) {
-            return res.status(400).json({ 
-                success: false,
-                message: "User already exists. You can login directly." 
-            });
+            return next(new AppError('User already exists. You can login directly.', 400));
         }
 
-        // Generate OTP
         const otp = generateOtp();
         const otpHash = await hashOtp(otp);
-        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-        // Create new user with OTP details
         const user = await User.create({
             name: name.trim(),
             email: email.toLowerCase().trim(),
-            password, // Make sure this is hashed in your User model pre-save hook
+            password,
             otpHash,
             otpExpiry,
             isVerified: false
         });
 
-        // Send OTP via email
-        const emailInfo = await transporter.sendMail({
+        await transporter.sendMail({
             from: `"Notes App" <no-reply@notesapp.com>`,
             to: user.email,
             subject: 'Your OTP for Account Verification - Notes App',
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2 style="color: #333;">Account Verification</h2>
-                    <p>Hello ${user.name},</p>
-                    <p>Your OTP for account verification is:</p>
-                    <div style="background-color: #f4f4f4; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 20px 0;">
-                        ${otp}
-                    </div>
-                    <p style="color: #666;">This OTP is valid for 10 minutes only.</p>
-                    <p>If you didn't request this, please ignore this email.</p>
-                    <hr style="margin: 20px 0;">
-                    <p style="color: #999; font-size: 12px;">This is an automated email. Please do not reply.</p>
-                </div>
-            `,
-            text: `Hello ${user.name},\n\nYour OTP for account verification is: ${otp}\n\nThis OTP is valid for 10 minutes only.\n\nIf you didn't request this, please ignore this email.`
+            html: `<p>Your OTP for account verification is: <strong>${otp}</strong></p>`
         });
 
-        console.log(`OTP sent to ${email} - MessageID: ${emailInfo.messageId}`);
-
-        return res.status(200).json({ 
-            success: true,
-            message: 'OTP sent to your email successfully. Please check your inbox.',
-            data: {
-                email: user.email,
-                otpExpiresAt: otpExpiry
-            }
+        sendResponse(res, 200, 'OTP sent to your email successfully. Please check your inbox.', {
+            email: user.email,
+            otpExpiresAt: otpExpiry
         });
 
     } catch (error) {
-        console.error('SignUp OTP Error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error occurred. Please try again later.'
-        });
+        next(error);
     }
 }
 
-export const verifyOtp = async (req:Request, res:Response) => {
+export const verifyOtp = async (req:Request, res:Response, next: NextFunction) => {
     try{
         const {email,otp} = req.body
 
         if(!email || !otp){
-            return res.status(400).json({message: 'Please provide all the fields'});
+            return next(new AppError('Please provide all the fields', 400));
         }
         const user = await User.findOne({email});
 
     
         if( !user || !user.otpHash || !user.otpExpiry){
-            return res.status(400).json({message: 'Otp not requested'});
+            return next(new AppError('Otp not requested', 400));
         }
 
         if(user.otpExpiry < new Date()){
-            return res.status(400).json({message: 'Otp expired'});
+            return next(new AppError('Otp expired', 400));
         }
 
         const isValid = await checkOtp (otp, user.otpHash);
 
         if(!isValid){
-            return res.status(400).json({message:"Invalid Otp"});
+            return next(new AppError('Invalid Otp', 400));
         }
 
         user.otpHash = undefined;
         user.otpExpiry = undefined;
+        user.isVerified = true;
         await user.save();
 
         const token  = jwt.sign(
@@ -143,45 +102,39 @@ export const verifyOtp = async (req:Request, res:Response) => {
             }
         )
 
-        res.status(201).json({
-            message:'User verified successfully',
+        sendResponse(res, 201, 'User verified successfully', {
             token,
-            user:{
-                id:user._id,
-                name:user.name,
-                email:user.email
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email
             }
-        })
+        });
 
     }catch(error){
-        console.error(error);
-        return res.status(500).json({message: 'Server error' });
+        next(error);
     }
 }
 
 
 
-export const login = async (req:Request, res:Response) => {
+export const login = async (req:Request, res:Response, next: NextFunction) => {
     try {
         const {email,password} = req.body;
 
         if(!email || !password){
-            return res.status(400).json({message:"All fields are required"})
+            return next(new AppError('All fields are required', 400));
         }
 
         const user = await User.findOne({email});
 
         if(!user){
-            return res.status(400).json({
-                message:"User not found"
-            })
+            return next(new AppError('User not found', 404));
         }
 
        const isMatch = await bcrypt.compare(password, user.password as string);
        if(!isMatch){
-        return res.status(400).json({
-            message:"Invalid credentials"
-        });
+        return next(new AppError('Invalid credentials', 400));
        }
 
        const token = jwt.sign({
@@ -192,16 +145,56 @@ export const login = async (req:Request, res:Response) => {
 
        {expiresIn:'12h'}
     )
-        res.status(201).json({
+        sendResponse(res, 200, 'Login successfully', {
             token,
-            user:{
-                userId:user._id,
-                email:user.email,
-                name:user.name,
-            },
-            message:"login successfully"
-        })
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email
+            }
+        });
     } catch (error) {
-         res.status(500).json({ message: "Server error" });
+         next(error);
+    }
+}
+
+export const resendOtp = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return next(new AppError('Email is required', 400));
+        }
+
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return next(new AppError('User not found', 404));
+        }
+
+        if (user.isVerified) {
+            return next(new AppError('User is already verified', 400));
+        }
+
+        const otp = generateOtp();
+        const otpHash = await hashOtp(otp);
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+        user.otpHash = otpHash;
+        user.otpExpiry = otpExpiry;
+
+        await user.save();
+
+        await transporter.sendMail({
+            from: `"Notes App" <no-reply@notesapp.com>`,
+            to: user.email,
+            subject: 'Your New OTP for Account Verification - Notes App',
+            html: `<p>Your new OTP for account verification is: <strong>${otp}</strong></p>`
+        });
+
+        sendResponse(res, 200, 'OTP resent to your email successfully. Please check your inbox.');
+
+    } catch (error) {
+        next(error);
     }
 }

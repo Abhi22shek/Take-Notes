@@ -1,14 +1,16 @@
 import { AuthRequest } from "../middleware/authMiddleware";
-import { Response } from "express";
+import { Response, NextFunction } from "express";
 import { Note } from "../models/Notes";
+import { sendResponse } from "../utils/response";
+import { AppError } from "../middleware/errorMiddleware";
 
-export const createNotes = async (req: AuthRequest, res: Response) => {
+export const createNotes = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
        
         const { title, content } = req.body;
         
         if (!title || !content) {
-            return res.status(400).json({ message: "Title and content required" });
+            return next(new AppError('Title and content are required', 400));
         }
 
         const note = new Note({
@@ -19,17 +21,13 @@ export const createNotes = async (req: AuthRequest, res: Response) => {
 
         await note.save();
 
-        res.status(201).json({
-            note,
-            message: "Notes created"
-        });
+        sendResponse(res, 201, 'Note created successfully', note);
     } catch (error) {
-        console.log(error, "server error");
-        res.status(500).json({ message: "Failed to create note" });
+        next(error);
     }
 }
 
-export const deleteNotes = async (req:AuthRequest,res:Response) => {
+export const deleteNotes = async (req:AuthRequest,res:Response, next: NextFunction) => {
     try {
         const {id} = req.params;
 
@@ -39,71 +37,50 @@ export const deleteNotes = async (req:AuthRequest,res:Response) => {
         })
 
         if(!note){
-            return res.status(400).json({
-                message:"Note not found"
-            })
+            return next(new AppError('Note not found', 404));
         }
 
-        res.status(200).json({
-           message: "Note deleted successfuly"
-        })
+        sendResponse(res, 200, 'Note deleted successfully');
     } catch (error) {
-        res.status(500).json({
-            message:"server error",
-            error
-        })
+        next(error);
     }
 }
 
 
 
-export const updateNotes = async (req: AuthRequest, res: Response) => {
+export const updateNotes = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
 
-    // Whatever fields the user sends (title, content, etc.)
     const updateData = req.body;
 
     const note = await Note.findOneAndUpdate(
-      { _id: id, userId: req.user!.id }, // filter
-      { $set: updateData },              // update
-      { new: true, runValidators: true } // options
+      { _id: id, userId: req.user!.id },
+      { $set: updateData },
+      { new: true, runValidators: true }
     );
 
     if (!note) {
-      return res.status(404).json({
-        message: "Note not found",
-      });
+      return next(new AppError('Note not found', 404));
     }
 
-    res.status(200).json({
-      note,
-      message: "Note updated successfully",
-    });
+    sendResponse(res, 200, 'Note updated successfully', note);
   } catch (error) {
-    res.status(500).json({
-      error,
-      message: "Server Error",
-    });
+    next(error);
   }
 };
 
 
-export const getNotes = async (req:AuthRequest,res:Response) => {
+export const getNotes = async (req:AuthRequest,res:Response, next: NextFunction) => {
     try {
         const notes = await Note.find({userId:req.user!.id}).sort({createdAt:-1})
 
         if(!notes){
-            res.status(400).json("notes are not found")
+            return next(new AppError('Notes not found', 404));
         }
 
-        res.status(201).json({
-            notes
-        })
+        sendResponse(res, 200, 'Notes retrieved successfully', notes);
     } catch (error) {
-       return res.status(500).json({
-            error,
-           message: "server error",
-        })
+       next(error);
     }
 }

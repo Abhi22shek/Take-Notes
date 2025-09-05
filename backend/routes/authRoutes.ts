@@ -1,5 +1,5 @@
 import { Router } from "express";
-import {  login, signUpOtp ,verifyOtp} from "../controller/authController";
+import {  login, signUpOtp ,verifyOtp, resendOtp} from "../controller/authController";
 
 
 const router = Router();
@@ -7,6 +7,7 @@ const router = Router();
 router.post('/register', signUpOtp);
 router.post('/verify-otp', verifyOtp);
 router.post('/login',login)
+router.post('/resend-otp', resendOtp);
 
 
 
