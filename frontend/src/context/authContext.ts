@@ -246,30 +246,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         showToast.info('Logged out 👋');
     };
 
-    const resendOtp = async (email: string) => {
-        const toastId = showToast.loading('Resending OTP... ⏳');
-        try {
-            setIsLoading(true);
-            setError(null);
-            await api.resendOtp(email);
-            showToast.update(toastId, 'OTP resent successfully! Check your email', 'success');
-        } catch (err: unknown) {
-            const errorMessage = err instanceof Error ? err.message : 'Failed to resend OTP';
-            setError(errorMessage);
-            showToast.update(toastId, `Failed to resend OTP: ${errorMessage}`, 'error');
-            throw err;
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     const value: AuthContextType = {
         user,
         token,
         login,
         register,
         verifyOtp,
-        resendOtp,
         logout,
         loading: isLoading,
         error,

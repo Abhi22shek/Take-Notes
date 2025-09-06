@@ -12,12 +12,8 @@ const Register = () => {
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [tempmail, setTempEmail] = useState('');
-  const [seconds, setSeconds] = useState(0); // default = 0, start only after OTP sent
-
   const navigate = useNavigate();
-  const { register, verifyOtp, error, loading, resendOtp } = useAuth();
-
-  // Countdown effect
+  const { register, verifyOtp, error, loading } = useAuth();
 
   const isFormValid = formData.name && formData.email && formData.password;
   const isOtpValid = otp.length === 6;
@@ -41,7 +37,6 @@ const Register = () => {
       if (result?.success) {
         setTempEmail(formData.email);
         setShowOtpInput(true);
-        setSeconds(60);
       }
     } catch (error) {
       console.log('Registration error:', error);
