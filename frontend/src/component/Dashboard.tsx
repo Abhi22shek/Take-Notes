@@ -107,7 +107,7 @@ const Dashboard = () => {
   }
 
   const handleEditClick = useCallback((note: Note) => {
-    const noteId = note.id || note._id
+    const noteId = note.id
     console.log('Editing note:', { noteId, note, editingNoteId })
     setEditingNoteId(noteId)
     setEditTitle(note.title)

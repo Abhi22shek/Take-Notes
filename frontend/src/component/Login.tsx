@@ -10,7 +10,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
-  const { login, error } = useAuth();
+  const { login } = useAuth();
 
   const isFormValid = formData.email && formData.password;
 

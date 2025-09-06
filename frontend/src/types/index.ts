@@ -19,7 +19,6 @@ export interface AuthContextType {
     login: (email:string,password:string) => Promise<void>;
     register: (name:string,email:string,password:string) => Promise<{success?:boolean;userExists?:boolean}>;
     verifyOtp : (email:string,otp:string) => Promise<void>;
-    resendOtp : (email:string) => Promise<void>;
     logout: () => void;
     loading:boolean;
     error:string | null;

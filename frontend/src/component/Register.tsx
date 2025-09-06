@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
 
@@ -13,7 +13,7 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [tempmail, setTempEmail] = useState('');
   const navigate = useNavigate();
-  const { register, verifyOtp, error, loading } = useAuth();
+  const { register, verifyOtp } = useAuth();
 
   const isFormValid = formData.name && formData.email && formData.password;
   const isOtpValid = otp.length === 6;
